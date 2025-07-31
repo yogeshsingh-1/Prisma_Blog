@@ -1,78 +1,67 @@
-import { Hono } from 'hono'
-import { decode, verify, sign } from 'hono/jwt';
-import { PrismaClient } from '@prisma/client/edge';
-import { withAccelerate } from '@prisma/extension-accelerate';
-// const app = new Hono()
+import { Hono } from "hono";
+import { userRouter } from "./routes/user.routes";
+import { blogRouter } from "./routes/blog.routes";
+import { getCookie } from "hono/cookie";
+import { verify } from "hono/jwt";
+import { cors } from "hono/cors";
 
 const app = new Hono<{
   Bindings: {
-    DATABASE_URL: string,
-    SECRET: string
-  }
+    DATABASE_URL: string;
+    SECRET: string;
+  };
 }>();
 
-app.get('/', (c) =>
-  c.text("hello")
-);
+app.use('/api/v1/*', cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  allowHeaders: ['Content-Type'],
+  allowMethods: ['GET', 'POST', 'OPTIONS']
+}))
+app.route('/api/v1/user', userRouter);
+app.route('/api/v1/blog', blogRouter);
+app.get('/', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Navbar</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body>
+      <!-- Navbar -->
+      <nav class="bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
+        <div class="text-xl font-bold">
+          <a href="/">MyBlog</a>
+        </div>
 
-app.post('/api/v1/signup', async (c) => {
-  const prisma = new PrismaClient({ datasourceUrl: c.env.DATABASE_URL, }).$extends(withAccelerate());
-  const body = await c.req.json();
-  //  return c.text("hello")
-  if (!body?.email || !body?.password || !body?.name) {
-    c.status(400);
-    return c.json({ error: "All fields (email, password, name) are required." });
-  }
-  try{
-    const user = await prisma.user.create({
-    data: {
-      email: body.email,
-      name: body.name,
-      password: body.password
-    }
-  })
+        <div class="flex items-center space-x-4">
+        <a href="/api/v1/blog/bulk" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">All Blogs</a>
+          <a href="/api/v1/blog" class="bg-green-500 hover:bg-green-700 px-4 py-2 rounded">Add Blog</a>
 
-  // if (!user.id) {
-  //   c.status(401);
-  //   return c.json({ error: "User Email Already exist" })
-  // }
-  return c.json({ data: user });
-  }catch(E){
-     return c.json({ error: "User Email Already exist" })
-  }
+          <!-- Dropdown -->
+          <div class="relative group">
+            <button class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">
+              Blog Options ▼
+            </button>
+            <div class="absolute hidden group-hover:block bg-white text-black mt-1 rounded shadow-lg z-10">
+              <a href="/update-blog" class="block px-4 py-2 hover:bg-gray-100">Update Blog</a>
+              <a href="/see-blog" class="block px-4 py-2 hover:bg-gray-100">See Blog</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <a href="/signin" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">Sign In</a>
+          <a href="/signup" class="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 rounded">Sign Up</a>
+        </div>
+      </nav>
+    </body>
+    </html>
+  `)
 })
-app.post('/api/v1/signin', async (c) => {
-  const prisma = new PrismaClient({ datasourceUrl: c.env.DATABASE_URL, }).$extends(withAccelerate());
-  const body = await c.req.json();
 
-  const user = await prisma.user.findUnique({
-    where: { email: body.email }
-  });
-  if (!user?.id) {
-    return c.json({ message: "Email or Password not matched" });
-  }
-  const token = await sign({ id: user.id, name: user.email }, c.env.SECRET);
-  return c.json({ data: { id: user.id }, token: token });
-})
-
-app.post('/api/v1/blog/*', async (c, next) => {
-  const token = await c.req.header("token") || "";
-  try {
-    const decode = await verify(token, c.env.SECRET);
-    console.log('Debug Output:', decode);
-    await next(); 
-  } catch (err) {
-    c.status(403);
-    return c.text("Invalid or missing token");
-  }
-});
-
-app.put('/api/v1/blog', (c) => {
-  return c.text("");
-})
-app.get('/api/v1/blog/:id', (c) => {
-  return c.text("");
-})
 
 
 export default app;
