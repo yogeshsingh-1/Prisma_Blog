@@ -11,13 +11,15 @@ const app = new Hono<{
     SECRET: string;
   };
 }>();
-
+// cors middleware
 app.use('/api/v1/*', cors({
   origin: 'http://localhost:5173',
   credentials: true,
-  allowHeaders: ['Content-Type'],
-  allowMethods: ['GET', 'POST', 'OPTIONS']
+  allowHeaders: ['Content-Type', 'Authorization'],
+  allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS']
 }))
+
+// routes
 app.route('/api/v1/user', userRouter);
 app.route('/api/v1/blog', blogRouter);
 app.get('/', (c) => {

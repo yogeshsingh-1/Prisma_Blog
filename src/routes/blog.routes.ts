@@ -22,8 +22,8 @@ blogRouter.get('/bulk', async (c) => {
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
   try {
-    const token = getCookie(c, "token");
-    console.log('🧁 Received Cookie Token:', token);
+    // const token = getCookie(c, "token");
+    // console.log('🧁 Received Cookie Token:', token);
     const blogs = await prisma.blog.findMany({
       select: {
         id: true,
@@ -88,12 +88,12 @@ blogRouter.get("/:id", async (c) => {
 blogRouter.use("/*", async (c, next) => {
 
   try {
-    // const token = getCookie(c, 'token');
-    const token = await c.req.header("token") || "";
+    console.log("hello")
+    const token = await c.req.header("authorization") || "";
 
-    console.log("token", token)
     if (!token) {
-      return c.json({ message: "Invalid token" });
+      c.status(401);
+      return c.json({ status: false, message: "Invalid token" });
     }
     const decode = await verify(token, c.env.SECRET);
     console.log("Debug Output:", decode);
@@ -101,8 +101,8 @@ blogRouter.use("/*", async (c, next) => {
     console.log("userId : ", c.get("userId"));
     await next();
   } catch (err) {
-    c.status(403);
-    return c.text("Invalid or missing token");
+    c.status(401);
+    return c.json({ status: false, message: "Invalid token" });
   }
 });
 
@@ -119,16 +119,21 @@ blogRouter.post("/", async (c) => {
     return c.json({ success: false, message: "Invalid Body!" });
   }
   // const body = await c.req.parseBody();
-  const blog = await prisma.blog.create({
-    data: {
-      title: String(body.title),
-      content: String(body.content),
-      published: Boolean(body.published),
-      authorId: c.get("userId"),
-    },
-  });
-  // return c.redirect('/api/v1/blog/bulk')
-  return c.json({ blog: blog, message: "Blog Added" });
+  try {
+    const blog = await prisma.blog.create({
+      data: {
+        title: String(body.title),
+        content: String(body.content),
+        published: Boolean(body.published),
+        authorId: c.get("userId"),
+      },
+    });
+
+    return c.json({ success: true, id: blog.id, message: "Blog Added" });
+  } catch (e) {
+    c.status(500);
+    return c.json({ success: false, message: "Blog Not added" });
+  }
 });
 
 // update blog by id
