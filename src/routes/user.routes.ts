@@ -95,7 +95,6 @@ userRouter.post("/signin", async (c) => {
       sameSite: "lax"
     });
     return c.json({ id: user.id, token: token, message: "signin completed" });
-    // return c.redirect('/');
   } catch (e) {
     return c.json({ message: "File all the data" });
   }
