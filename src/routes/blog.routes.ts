@@ -13,11 +13,29 @@ export const blogRouter = new Hono<{
   };
 }>();
 
+blogRouter.use("/*", async (c, next) => {
+  try {
+    // console.log("hello");
+    const token = (await c.req.header("authorization")) || "";
 
-
+    // console.log(await c.req.header());
+    if (!token) {
+      c.status(401);
+      return c.json({ status: false, message: "Invalid token" });
+    }
+    const decode = await verify(token, c.env.SECRET);
+    console.log("Debug Output:", decode);
+    c.set("userId", Number(decode.id));
+    // console.log("userId : ", c.get("userId"));
+    await next();
+  } catch (err) {
+    c.status(401);
+    return c.json({ status: false, message: "Invalid token" });
+  }
+});
 // bulk blog
 // Todo : add pagination
-blogRouter.get('/bulk', async (c) => {
+blogRouter.get("/bulk", async (c) => {
   const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
@@ -32,21 +50,21 @@ blogRouter.get('/bulk', async (c) => {
         published: true,
         author: {
           select: {
-            username: true
-          }
-        }
-      }
+            username: true,
+          },
+        },
+      },
     });
     // console.log(blogs);
     if (blogs.length > 0) {
       c.json(200);
-      return c.json({ success: true, blog: blogs })
+      return c.json({ success: true, blog: blogs });
     }
   } catch (e) {
     c.json(500);
-    return c.json({ success: false, message: 'server side error' })
+    return c.json({ success: false, message: "server side error" });
   }
-})
+});
 
 // get a blog based on any id
 blogRouter.get("/:id", async (c) => {
@@ -66,10 +84,10 @@ blogRouter.get("/:id", async (c) => {
         published: true,
         author: {
           select: {
-            username: true
-          }
-        }
-      }
+            username: true,
+          },
+        },
+      },
     });
     if (blog) {
       c.status(200);
@@ -83,30 +101,29 @@ blogRouter.get("/:id", async (c) => {
   }
 });
 
+// blogRouter.use("/*", async (c, next) => {
 
-
-blogRouter.use("/*", async (c, next) => {
-
-  try {
-    console.log("hello")
-    const token = await c.req.header("authorization") || "";
-
-    if (!token) {
-      c.status(401);
-      return c.json({ status: false, message: "Invalid token" });
-    }
-    const decode = await verify(token, c.env.SECRET);
-    console.log("Debug Output:", decode);
-    c.set("userId", Number(decode.id));
-    console.log("userId : ", c.get("userId"));
-    await next();
-  } catch (err) {
-    c.status(401);
-    return c.json({ status: false, message: "Invalid token" });
-  }
-});
+//   try {
+//     console.log("hello")
+//     const token = await c.req.header("authorization") || "";
+//     console.log(token)
+//     if (!token) {
+//       c.status(401);
+//       return c.json({ status: false, message: "Invalid token" });
+//     }
+//     const decode = await verify(token, c.env.SECRET);
+//     console.log("Debug Output:", decode);
+//     c.set("userId", Number(decode.id));
+//     console.log("userId : ", c.get("userId"));
+//     await next();
+//   } catch (err) {
+//     c.status(401);
+//     return c.json({ status: false, message: "Invalid token" });
+//   }
+// });
 
 // add Blog
+
 blogRouter.post("/", async (c) => {
   const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
@@ -115,7 +132,7 @@ blogRouter.post("/", async (c) => {
   console.log("hello", body);
 
   if (!body || !body?.title || !body.content) {
-    c.status(403)
+    c.status(403);
     return c.json({ success: false, message: "Invalid Body!" });
   }
   // const body = await c.req.parseBody();
@@ -137,29 +154,34 @@ blogRouter.post("/", async (c) => {
 });
 
 // update blog by id
-blogRouter.put("/", async (c) => {
+blogRouter.put("/:id", async (c) => {
   const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
   try {
     const body = await c.req.json();
-
+    const { id } = await c.req.param();
+    console.log("id", id);
+    console.log("body", body);
+    if (!body) {
+      c.status(403);
+      return c.json({ success: false, message: "Id is not found" });
+    }
     const blog = await prisma.blog.update({
       where: {
-        id: body.id, //  Blog Id
+        id: Number(id), //  Blog Id
         authorId: c.get("userId"), //  Only allow user to update their own blog
       },
       data: {
         title: body.title,
         content: body.content,
-        published: body.published,
+        // published: body.published,
       },
     });
     c.status(200);
-    return c.json({ blog: blog, message: "Blog Updated Succesfully" });
+    return c.json({ success: true, message: "Blog Updated Succesfully" });
   } catch (e) {
-    return c.json({ message: "Your are not valid author" });
+    c.status(403);
+    return c.json({ success: false, message: "Your are not valid author" });
   }
 });
-
-
