@@ -25,7 +25,7 @@ userRouter.post("/signup", async (c) => {
   //  return c.text("hello")
 
   try {
-    console.log("hello")
+    console.log("hello");
     const body = await c.req.json();
 
     // const body  = await c.req.parseBody();
@@ -45,10 +45,15 @@ userRouter.post("/signup", async (c) => {
         },
       });
 
-      const token = await sign({ id: user.id }, c.env.SECRET, "HS256");
-      setCookie(c, "token", token);
-      return c.json({ token: token, message: "Signup Completed" });
-      // return c.redirect('/');
+      const token = await sign({ id: user.id, name: user.email }, c.env.SECRET);
+      setCookie(c, "token", token, {
+        httpOnly: true,
+        path: "/",
+        maxAge: 1000 * 60 * 60 * 6,
+        sameSite: "None",
+        secure: true,
+      });
+      return c.json({ id: user.id, token: token, message: "signup completed" });
     } catch (E) {
       c.status(401);
       return c.json({ error: "User Email Already exist" });
@@ -70,7 +75,7 @@ userRouter.post("/signin", async (c) => {
       password: string;
     }
     const body: User = await c.req.json();
-    console.log(body)
+    console.log(body);
     // const body  = await c.req.parseBody();
 
     if (!body || !body?.email || !body?.password) {
@@ -88,11 +93,12 @@ userRouter.post("/signin", async (c) => {
       return c.json({ message: "Email or Password not matched" });
     }
     const token = await sign({ id: user.id, name: user.email }, c.env.SECRET);
-    setCookie(c, 'token', token, {
+    setCookie(c, "token", token, {
       httpOnly: true,
-      path: '/',
+      path: "/",
       maxAge: 1000 * 60 * 60 * 6,
-      sameSite: "lax"
+      sameSite: "None",
+      secure: true,
     });
     return c.json({ id: user.id, token: token, message: "signin completed" });
   } catch (e) {
